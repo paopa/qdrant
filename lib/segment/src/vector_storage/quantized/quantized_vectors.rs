@@ -8,6 +8,7 @@ use quantization::encoded_vectors_binary::EncodedVectorsBin;
 use quantization::{EncodedVectors, EncodedVectorsPQ, EncodedVectorsU8};
 use serde::{Deserialize, Serialize};
 
+use super::quantized_multivector_storage::QuantizedMultivectorStorage;
 use super::quantized_scorer_builder::QuantizedScorerBuilder;
 use crate::common::operation_error::{OperationError, OperationResult};
 use crate::common::vector_utils::TrySetCapacityExact;
@@ -41,6 +42,13 @@ pub enum QuantizedVectorStorage {
     PQMmap(EncodedVectorsPQ<QuantizedMmapStorage>),
     BinaryRam(EncodedVectorsBin<ChunkedVectors<u8>>),
     BinaryMmap(EncodedVectorsBin<QuantizedMmapStorage>),
+
+    ScalarRamMulti(QuantizedMultivectorStorage<EncodedVectorsU8<ChunkedVectors<u8>>>),
+    ScalarMmapMulti(QuantizedMultivectorStorage<EncodedVectorsU8<QuantizedMmapStorage>>),
+    PQRamMulti(QuantizedMultivectorStorage<EncodedVectorsPQ<ChunkedVectors<u8>>>),
+    PQMmapMulti(QuantizedMultivectorStorage<EncodedVectorsPQ<QuantizedMmapStorage>>),
+    BinaryRamMulti(QuantizedMultivectorStorage<EncodedVectorsBin<ChunkedVectors<u8>>>),
+    BinaryMmapMulti(QuantizedMultivectorStorage<EncodedVectorsBin<QuantizedMmapStorage>>),
 }
 
 pub struct QuantizedVectors {
@@ -89,6 +97,12 @@ impl QuantizedVectors {
             QuantizedVectorStorage::PQMmap(storage) => storage.save(&data_path, &meta_path)?,
             QuantizedVectorStorage::BinaryRam(storage) => storage.save(&data_path, &meta_path)?,
             QuantizedVectorStorage::BinaryMmap(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::ScalarRamMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::ScalarMmapMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::PQRamMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::PQMmapMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::BinaryRamMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::BinaryMmapMulti(storage) => storage.save(&data_path, &meta_path)?,
         };
         Ok(())
     }
