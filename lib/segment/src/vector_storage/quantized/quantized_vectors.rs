@@ -4,8 +4,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use bitvec::slice::BitSlice;
 use common::types::PointOffsetType;
 use io::file_operations::{atomic_save_json, read_json};
-use quantization::encoded_vectors_binary::EncodedVectorsBin;
-use quantization::{EncodedVectors, EncodedVectorsPQ, EncodedVectorsU8};
+use quantization::encoded_vectors_binary::{EncodedBinVector, EncodedVectorsBin};
+use quantization::{
+    EncodedQueryPQ, EncodedQueryU8, EncodedVectors, EncodedVectorsPQ, EncodedVectorsU8,
+};
 use serde::{Deserialize, Serialize};
 
 use super::quantized_multivector_storage::QuantizedMultivectorStorage;
@@ -45,12 +47,22 @@ pub enum QuantizedVectorStorage {
     BinaryRam(EncodedVectorsBin<ChunkedVectors<u8>>),
     BinaryMmap(EncodedVectorsBin<QuantizedMmapStorage>),
 
-    ScalarRamMulti(QuantizedMultivectorStorage<EncodedVectorsU8<ChunkedVectors<u8>>>),
-    ScalarMmapMulti(QuantizedMultivectorStorage<EncodedVectorsU8<QuantizedMmapStorage>>),
-    PQRamMulti(QuantizedMultivectorStorage<EncodedVectorsPQ<ChunkedVectors<u8>>>),
-    PQMmapMulti(QuantizedMultivectorStorage<EncodedVectorsPQ<QuantizedMmapStorage>>),
-    BinaryRamMulti(QuantizedMultivectorStorage<EncodedVectorsBin<ChunkedVectors<u8>>>),
-    BinaryMmapMulti(QuantizedMultivectorStorage<EncodedVectorsBin<QuantizedMmapStorage>>),
+    ScalarRamMulti(
+        QuantizedMultivectorStorage<EncodedQueryU8, EncodedVectorsU8<ChunkedVectors<u8>>>,
+    ),
+    ScalarMmapMulti(
+        QuantizedMultivectorStorage<EncodedQueryU8, EncodedVectorsU8<QuantizedMmapStorage>>,
+    ),
+    PQRamMulti(QuantizedMultivectorStorage<EncodedQueryPQ, EncodedVectorsPQ<ChunkedVectors<u8>>>),
+    PQMmapMulti(
+        QuantizedMultivectorStorage<EncodedQueryPQ, EncodedVectorsPQ<QuantizedMmapStorage>>,
+    ),
+    BinaryRamMulti(
+        QuantizedMultivectorStorage<EncodedBinVector, EncodedVectorsBin<ChunkedVectors<u8>>>,
+    ),
+    BinaryMmapMulti(
+        QuantizedMultivectorStorage<EncodedBinVector, EncodedVectorsBin<QuantizedMmapStorage>>,
+    ),
 }
 
 pub struct QuantizedVectors {
