@@ -25,7 +25,6 @@ pub fn score_max_similarity<T: PrimitiveVectorElement, TMetric: Metric<T>>(
     multi_dense_a: TypedMultiDenseVectorRef<T>,
     multi_dense_b: TypedMultiDenseVectorRef<T>,
 ) -> ScoreType {
-    // TODO(colbert) add user input validation
     debug_assert!(!multi_dense_a.is_empty());
     debug_assert!(!multi_dense_b.is_empty());
     let mut sum = 0.0;
