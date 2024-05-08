@@ -135,7 +135,9 @@ impl<T: PrimitiveVectorElement + 'static> AppendableMmapMultiDenseVectorStorage<
     }
 }
 
-impl<T: PrimitiveVectorElement> MultiVectorStorage<T> for AppendableMmapMultiDenseVectorStorage<T> {
+impl<T: PrimitiveVectorElement + 'static> MultiVectorStorage<T>
+    for AppendableMmapMultiDenseVectorStorage<T>
+{
     fn get_multi(&self, key: PointOffsetType) -> TypedMultiDenseVectorRef<T> {
         let mmap_offset = self.offsets.get(key as usize).unwrap().first().unwrap();
         let flattened_vectors = self
@@ -146,6 +148,13 @@ impl<T: PrimitiveVectorElement> MultiVectorStorage<T> for AppendableMmapMultiDen
             flattened_vectors,
             dim: self.vectors.dim(),
         }
+    }
+
+    fn iterate_inner_vectors(&self) -> impl Iterator<Item = &[T]> + Clone + Send {
+        (0..self.total_vector_count()).flat_map(|key| {
+            let mmap_offset = self.offsets.get(key).unwrap().first().unwrap();
+            (0..mmap_offset.count).map(|i| self.vectors.get(mmap_offset.offset + i).unwrap())
+        })
     }
 
     fn multi_vector_config(&self) -> &MultiVectorConfig {

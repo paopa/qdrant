@@ -23,7 +23,9 @@ use crate::vector_storage::chunked_vectors::ChunkedVectors;
 use crate::vector_storage::quantized::quantized_mmap_storage::{
     QuantizedMmapStorage, QuantizedMmapStorageBuilder,
 };
-use crate::vector_storage::{DenseVectorStorage, RawScorer, VectorStorage, VectorStorageEnum};
+use crate::vector_storage::{
+    DenseVectorStorage, MultiVectorStorage, RawScorer, VectorStorage, VectorStorageEnum,
+};
 
 pub const QUANTIZED_CONFIG_PATH: &str = "quantized.config.json";
 pub const QUANTIZED_DATA_PATH: &str = "quantized.data";
@@ -97,12 +99,20 @@ impl QuantizedVectors {
             QuantizedVectorStorage::PQMmap(storage) => storage.save(&data_path, &meta_path)?,
             QuantizedVectorStorage::BinaryRam(storage) => storage.save(&data_path, &meta_path)?,
             QuantizedVectorStorage::BinaryMmap(storage) => storage.save(&data_path, &meta_path)?,
-            QuantizedVectorStorage::ScalarRamMulti(storage) => storage.save(&data_path, &meta_path)?,
-            QuantizedVectorStorage::ScalarMmapMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::ScalarRamMulti(storage) => {
+                storage.save(&data_path, &meta_path)?
+            }
+            QuantizedVectorStorage::ScalarMmapMulti(storage) => {
+                storage.save(&data_path, &meta_path)?
+            }
             QuantizedVectorStorage::PQRamMulti(storage) => storage.save(&data_path, &meta_path)?,
             QuantizedVectorStorage::PQMmapMulti(storage) => storage.save(&data_path, &meta_path)?,
-            QuantizedVectorStorage::BinaryRamMulti(storage) => storage.save(&data_path, &meta_path)?,
-            QuantizedVectorStorage::BinaryMmapMulti(storage) => storage.save(&data_path, &meta_path)?,
+            QuantizedVectorStorage::BinaryRamMulti(storage) => {
+                storage.save(&data_path, &meta_path)?
+            }
+            QuantizedVectorStorage::BinaryMmapMulti(storage) => {
+                storage.save(&data_path, &meta_path)?
+            }
         };
         Ok(())
     }
@@ -115,6 +125,7 @@ impl QuantizedVectors {
             self.path.join(QUANTIZED_DATA_PATH),
             // Meta file
             self.path.join(QUANTIZED_META_PATH),
+            // TODO: add offsets file
         ]
     }
 
@@ -154,12 +165,18 @@ impl QuantizedVectors {
                 Self::create_impl(v.as_ref(), quantization_config, path, max_threads, stopped)
             }
             VectorStorageEnum::SparseSimple(_) => Err(OperationError::WrongSparse),
-            VectorStorageEnum::MultiDenseSimple(_) => Err(OperationError::WrongMulti),
-            VectorStorageEnum::MultiDenseSimpleByte(_) => Err(OperationError::WrongMulti),
-            VectorStorageEnum::MultiDenseSimpleHalf(_) => Err(OperationError::WrongMulti),
-            VectorStorageEnum::MultiDenseAppendableMemmap(_) => Err(OperationError::WrongMulti),
-            VectorStorageEnum::MultiDenseAppendableMemmapByte(_) => Err(OperationError::WrongMulti),
-            VectorStorageEnum::MultiDenseAppendableMemmapHalf(_) => Err(OperationError::WrongMulti),
+            VectorStorageEnum::MultiDenseSimple(v) => {
+                Self::create_multi_impl(v, quantization_config, path, max_threads, stopped)
+            }
+            VectorStorageEnum::MultiDenseSimpleByte(v) => {
+                Self::create_multi_impl(v, quantization_config, path, max_threads, stopped)
+            }
+            VectorStorageEnum::MultiDenseAppendableMemmap(v) => {
+                Self::create_multi_impl(v.as_ref(), quantization_config, path, max_threads, stopped)
+            }
+            VectorStorageEnum::MultiDenseAppendableMemmapByte(v) => {
+                Self::create_multi_impl(v.as_ref(), quantization_config, path, max_threads, stopped)
+            }
         }
     }
 
@@ -240,10 +257,87 @@ impl QuantizedVectors {
         Ok(quantized_vectors)
     }
 
+    fn create_multi_impl<
+        TElement: PrimitiveVectorElement + 'static,
+        TVectorStorage: MultiVectorStorage<TElement> + Send + Sync,
+    >(
+        vector_storage: &TVectorStorage,
+        quantization_config: &QuantizationConfig,
+        path: &Path,
+        max_threads: usize,
+        stopped: &AtomicBool,
+    ) -> OperationResult<Self> {
+        let dim = vector_storage.vector_dim();
+        let distance = vector_storage.distance();
+        let datatype = vector_storage.datatype();
+        let vectors = vector_storage.iterate_inner_vectors().map(|v| {
+            PrimitiveVectorElement::quantization_preprocess(quantization_config, distance, v)
+        });
+        let inner_vectors_count = vectors.clone().count();
+        let on_disk_vector_storage = vector_storage.is_on_disk();
+
+        let vector_parameters =
+            Self::construct_vector_parameters(distance, dim, inner_vectors_count);
+
+        let quantized_storage = match quantization_config {
+            QuantizationConfig::Scalar(ScalarQuantization {
+                scalar: scalar_config,
+            }) => Self::create_scalar(
+                vectors,
+                &vector_parameters,
+                scalar_config,
+                path,
+                on_disk_vector_storage,
+                stopped,
+            )?,
+            QuantizationConfig::Product(ProductQuantization { product: pq_config }) => {
+                Self::create_pq(
+                    vectors,
+                    &vector_parameters,
+                    pq_config,
+                    path,
+                    on_disk_vector_storage,
+                    max_threads,
+                    stopped,
+                )?
+            }
+            QuantizationConfig::Binary(BinaryQuantization {
+                binary: binary_config,
+            }) => Self::create_binary(
+                vectors,
+                &vector_parameters,
+                binary_config,
+                path,
+                on_disk_vector_storage,
+                stopped,
+            )?,
+        };
+
+        let quantized_vectors_config = QuantizedVectorsConfig {
+            quantization_config: quantization_config.clone(),
+            vector_parameters,
+        };
+
+        let quantized_vectors = QuantizedVectors {
+            storage_impl: quantized_storage,
+            config: quantized_vectors_config,
+            path: path.to_path_buf(),
+            distance,
+            datatype,
+        };
+
+        // TODO: convert into multistorage
+
+        quantized_vectors.save_to(path)?;
+        atomic_save_json(&path.join(QUANTIZED_CONFIG_PATH), &quantized_vectors.config)?;
+        Ok(quantized_vectors)
+    }
+
     pub fn config_exists(path: &Path) -> bool {
         path.join(QUANTIZED_CONFIG_PATH).exists()
     }
 
+    // TODO
     pub fn load(vector_storage: &VectorStorageEnum, path: &Path) -> OperationResult<Self> {
         let on_disk_vector_storage = vector_storage.is_on_disk();
         let distance = vector_storage.distance();

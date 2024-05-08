@@ -14,7 +14,7 @@ use crate::vector_storage::MultiVectorStorage;
 
 pub struct MultiMetricQueryScorer<
     'a,
-    TElement: PrimitiveVectorElement,
+    TElement: PrimitiveVectorElement + 'static,
     TMetric: Metric<TElement>,
     TVectorStorage: MultiVectorStorage<TElement>,
 > {
@@ -25,7 +25,7 @@ pub struct MultiMetricQueryScorer<
 
 impl<
         'a,
-        TElement: PrimitiveVectorElement,
+        TElement: PrimitiveVectorElement + 'static,
         TMetric: Metric<TElement>,
         TVectorStorage: MultiVectorStorage<TElement>,
     > MultiMetricQueryScorer<'a, TElement, TMetric, TVectorStorage>

@@ -15,7 +15,7 @@ use crate::vector_storage::MultiVectorStorage;
 
 pub struct MultiCustomQueryScorer<
     'a,
-    TElement: PrimitiveVectorElement,
+    TElement: PrimitiveVectorElement + 'static,
     TMetric: Metric<TElement>,
     TVectorStorage: MultiVectorStorage<TElement>,
     TQuery: Query<TypedMultiDenseVector<TElement>>,
@@ -66,7 +66,7 @@ impl<
 
 impl<
         'a,
-        TElement: PrimitiveVectorElement,
+        TElement: PrimitiveVectorElement + 'static,
         TMetric: Metric<TElement>,
         TVectorStorage: MultiVectorStorage<TElement>,
         TQuery: Query<TypedMultiDenseVector<TElement>>,
