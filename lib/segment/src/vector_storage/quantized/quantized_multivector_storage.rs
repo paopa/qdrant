@@ -3,7 +3,7 @@ use std::path::Path;
 use common::types::PointOffsetType;
 use quantization::EncodedVectors;
 
-use crate::common::operation_error::OperationResult;
+use crate::{common::operation_error::OperationResult, data_types::vectors::TypedMultiDenseVectorRef};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 struct MultivectorOffset {
@@ -12,7 +12,8 @@ struct MultivectorOffset {
 }
 
 pub struct QuantizedMultivectorStorage<QuantizedStorage> {
-    _quantized_storage: QuantizedStorage,
+    dim: usize,
+    quantized_storage: QuantizedStorage,
     _offsets: Vec<MultivectorOffset>,
 }
 
@@ -40,8 +41,14 @@ where
         todo!()
     }
 
-    fn encode_query(&self, _query: &[f32]) -> Vec<TEncodedQuery> {
-        todo!()
+    fn encode_query(&self, query: &[f32]) -> Vec<TEncodedQuery> {
+        let multi_vector = TypedMultiDenseVectorRef {
+            dim: self.dim,
+            flattened_vectors: query,
+        };
+        multi_vector.multi_vectors().map(|inner_vector|
+            self.quantized_storage.encode_query(inner_vector)
+        ).collect()
     }
 
     fn score_point(&self, _query: &Vec<TEncodedQuery>, _i: u32) -> f32 {
