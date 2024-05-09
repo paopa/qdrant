@@ -1,5 +1,3 @@
-pub mod multi_quantized_custom_query_scorer;
-pub mod multi_quantized_query_scorer;
 mod quantized_custom_query_scorer;
 mod quantized_mmap_storage;
 pub mod quantized_multivector_storage;

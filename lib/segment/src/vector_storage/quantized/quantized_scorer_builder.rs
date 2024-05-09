@@ -3,8 +3,6 @@ use std::sync::atomic::AtomicBool;
 use bitvec::slice::BitSlice;
 use quantization::EncodedVectors;
 
-use super::multi_quantized_custom_query_scorer::MultiQuantizedCustomQueryScorer;
-use super::multi_quantized_query_scorer::MultiQuantizedQueryScorer;
 use super::quantized_custom_query_scorer::QuantizedCustomQueryScorer;
 use super::quantized_query_scorer::QuantizedQueryScorer;
 use super::quantized_vectors::QuantizedVectorStorage;
@@ -166,7 +164,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
             }
             QueryVector::Recommend(reco_query) => {
                 let reco_query: RecoQuery<DenseVector> = reco_query.transform_into()?;
-                let query_scorer = QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _, _>::new(
+                let query_scorer = QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _>::new(
                     reco_query,
                     quantized_storage,
                     quantization_config,
@@ -176,7 +174,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
             QueryVector::Discovery(discovery_query) => {
                 let discovery_query: DiscoveryQuery<DenseVector> =
                     discovery_query.transform_into()?;
-                let query_scorer = QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _, _>::new(
+                let query_scorer = QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _>::new(
                     discovery_query,
                     quantized_storage,
                     quantization_config,
@@ -185,7 +183,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
             }
             QueryVector::Context(context_query) => {
                 let context_query: ContextQuery<DenseVector> = context_query.transform_into()?;
-                let query_scorer = QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _, _>::new(
+                let query_scorer = QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _>::new(
                     context_query,
                     quantized_storage,
                     quantization_config,
@@ -217,7 +215,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
 
         match query {
             QueryVector::Nearest(vector) => {
-                let query_scorer = MultiQuantizedQueryScorer::<TElement, TMetric, _, _>::new(
+                let query_scorer = QuantizedQueryScorer::<TElement, TMetric, _, _>::new_multi(
                     vector.try_into()?,
                     quantized_storage,
                     quantization_config,
@@ -227,7 +225,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
             QueryVector::Recommend(reco_query) => {
                 let reco_query: RecoQuery<MultiDenseVector> = reco_query.transform_into()?;
                 let query_scorer =
-                    MultiQuantizedCustomQueryScorer::<TElement, TMetric, _, _, _, _>::new(
+                    QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _>::new_multi(
                         reco_query,
                         quantized_storage,
                         quantization_config,
@@ -238,7 +236,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
                 let discovery_query: DiscoveryQuery<MultiDenseVector> =
                     discovery_query.transform_into()?;
                 let query_scorer =
-                    MultiQuantizedCustomQueryScorer::<TElement, TMetric, _, _, _, _>::new(
+                    QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _>::new_multi(
                         discovery_query,
                         quantized_storage,
                         quantization_config,
@@ -249,7 +247,7 @@ impl<'a> QuantizedScorerBuilder<'a> {
                 let context_query: ContextQuery<MultiDenseVector> =
                     context_query.transform_into()?;
                 let query_scorer =
-                    MultiQuantizedCustomQueryScorer::<TElement, TMetric, _, _, _, _>::new(
+                    QuantizedCustomQueryScorer::<TElement, TMetric, _, _, _>::new_multi(
                         context_query,
                         quantized_storage,
                         quantization_config,
