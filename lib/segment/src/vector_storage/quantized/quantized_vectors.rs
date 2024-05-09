@@ -4,13 +4,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use bitvec::slice::BitSlice;
 use common::types::PointOffsetType;
 use io::file_operations::{atomic_save_json, read_json};
+use itertools::Itertools;
 use quantization::encoded_vectors_binary::{EncodedBinVector, EncodedVectorsBin};
 use quantization::{
     EncodedQueryPQ, EncodedQueryU8, EncodedVectors, EncodedVectorsPQ, EncodedVectorsU8,
 };
 use serde::{Deserialize, Serialize};
 
-use super::quantized_multivector_storage::QuantizedMultivectorStorage;
+use super::quantized_multivector_storage::{MultivectorOffset, QuantizedMultivectorStorage};
 use super::quantized_scorer_builder::QuantizedScorerBuilder;
 use crate::common::operation_error::{OperationError, OperationResult};
 use crate::common::vector_utils::TrySetCapacityExact;
@@ -282,6 +283,7 @@ impl QuantizedVectors {
         let dim = vector_storage.vector_dim();
         let distance = vector_storage.distance();
         let datatype = vector_storage.datatype();
+        let multi_vector_config = *vector_storage.multi_vector_config();
         let vectors = vector_storage.iterate_inner_vectors().map(|v| {
             PrimitiveVectorElement::quantization_preprocess(quantization_config, distance, v)
         });
@@ -325,6 +327,79 @@ impl QuantizedVectors {
             )?,
         };
 
+        let offsets = vector_storage
+            .iterate_inner_vectors()
+            .scan(
+                MultivectorOffset {
+                    offset: 0,
+                    count: 0,
+                },
+                |acc, multi_vector| {
+                    Some(MultivectorOffset {
+                        offset: acc.offset + acc.count,
+                        count: multi_vector.len() as PointOffsetType,
+                    })
+                },
+            )
+            .collect_vec();
+
+        let quantized_storage = match quantized_storage {
+            QuantizedVectorStorage::ScalarRam(quantized_storage) => {
+                QuantizedVectorStorage::ScalarRamMulti(QuantizedMultivectorStorage::new(
+                    dim,
+                    quantized_storage,
+                    offsets,
+                    multi_vector_config,
+                ))
+            }
+            QuantizedVectorStorage::ScalarMmap(quantized_storage) => {
+                QuantizedVectorStorage::ScalarMmapMulti(QuantizedMultivectorStorage::new(
+                    dim,
+                    quantized_storage,
+                    offsets,
+                    multi_vector_config,
+                ))
+            }
+            QuantizedVectorStorage::PQRam(quantized_storage) => {
+                QuantizedVectorStorage::PQRamMulti(QuantizedMultivectorStorage::new(
+                    dim,
+                    quantized_storage,
+                    offsets,
+                    multi_vector_config,
+                ))
+            }
+            QuantizedVectorStorage::PQMmap(quantized_storage) => {
+                QuantizedVectorStorage::PQMmapMulti(QuantizedMultivectorStorage::new(
+                    dim,
+                    quantized_storage,
+                    offsets,
+                    multi_vector_config,
+                ))
+            }
+            QuantizedVectorStorage::BinaryRam(quantized_storage) => {
+                QuantizedVectorStorage::BinaryRamMulti(QuantizedMultivectorStorage::new(
+                    dim,
+                    quantized_storage,
+                    offsets,
+                    multi_vector_config,
+                ))
+            }
+            QuantizedVectorStorage::BinaryMmap(quantized_storage) => {
+                QuantizedVectorStorage::BinaryMmapMulti(QuantizedMultivectorStorage::new(
+                    dim,
+                    quantized_storage,
+                    offsets,
+                    multi_vector_config,
+                ))
+            }
+            QuantizedVectorStorage::ScalarRamMulti(_) => unreachable!(),
+            QuantizedVectorStorage::ScalarMmapMulti(_) => unreachable!(),
+            QuantizedVectorStorage::PQRamMulti(_) => unreachable!(),
+            QuantizedVectorStorage::PQMmapMulti(_) => unreachable!(),
+            QuantizedVectorStorage::BinaryRamMulti(_) => unreachable!(),
+            QuantizedVectorStorage::BinaryMmapMulti(_) => unreachable!(),
+        };
+
         let quantized_vectors_config = QuantizedVectorsConfig {
             quantization_config: quantization_config.clone(),
             vector_parameters,
@@ -337,8 +412,6 @@ impl QuantizedVectors {
             distance,
             datatype,
         };
-
-        // TODO: convert into multistorage
 
         quantized_vectors.save_to(path)?;
         atomic_save_json(&path.join(QUANTIZED_CONFIG_PATH), &quantized_vectors.config)?;

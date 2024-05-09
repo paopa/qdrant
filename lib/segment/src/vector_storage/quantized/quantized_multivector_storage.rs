@@ -8,9 +8,9 @@ use crate::data_types::vectors::TypedMultiDenseVectorRef;
 use crate::types::{MultiVectorComparator, MultiVectorConfig};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-struct MultivectorOffset {
-    offset: PointOffsetType,
-    count: PointOffsetType,
+pub struct MultivectorOffset {
+    pub offset: PointOffsetType,
+    pub count: PointOffsetType,
 }
 
 pub struct QuantizedMultivectorStorage<TEncodedQuery, QuantizedStorage>
@@ -30,6 +30,21 @@ where
     TEncodedQuery: Sized,
     QuantizedStorage: EncodedVectors<TEncodedQuery>,
 {
+    pub fn new(
+        dim: usize,
+        quantized_storage: QuantizedStorage,
+        offsets: Vec<MultivectorOffset>,
+        multi_vector_config: MultiVectorConfig,
+    ) -> Self {
+        Self {
+            dim,
+            quantized_storage,
+            offsets,
+            multi_vector_config,
+            encoded_query: PhantomData,
+        }
+    }
+
     fn score_point_max_similarity(&self, query: &Vec<TEncodedQuery>, vector_index: u32) -> f32 {
         let vectors_count = self.offsets[vector_index as usize].count;
         let vectors_offset = self.offsets[vector_index as usize].offset;

@@ -5,20 +5,16 @@ use common::types::{PointOffsetType, ScoreType};
 use itertools::Itertools;
 
 use crate::data_types::primitive::PrimitiveVectorElement;
-use crate::data_types::vectors::{DenseVector, MultiDenseVector, TypedDenseVector, TypedMultiDenseVector};
+use crate::data_types::vectors::{
+    DenseVector, MultiDenseVector, TypedDenseVector, TypedMultiDenseVector,
+};
 use crate::spaces::metric::Metric;
 use crate::types::QuantizationConfig;
 use crate::vector_storage::query::{Query, TransformInto};
 use crate::vector_storage::query_scorer::QueryScorer;
 
-pub struct QuantizedCustomQueryScorer<
-    'a,
-    TElement,
-    TMetric,
-    TEncodedQuery,
-    TEncodedVectors,
-    TQuery,
-> where
+pub struct QuantizedCustomQueryScorer<'a, TElement, TMetric, TEncodedQuery, TEncodedVectors, TQuery>
+where
     TElement: PrimitiveVectorElement,
     TMetric: Metric<TElement>,
     TEncodedVectors: quantization::EncodedVectors<TEncodedQuery>,
@@ -32,14 +28,7 @@ pub struct QuantizedCustomQueryScorer<
 }
 
 impl<'a, TElement, TMetric, TEncodedQuery, TEncodedVectors, TQuery>
-    QuantizedCustomQueryScorer<
-        'a,
-        TElement,
-        TMetric,
-        TEncodedQuery,
-        TEncodedVectors,
-        TQuery,
-    >
+    QuantizedCustomQueryScorer<'a, TElement, TMetric, TEncodedQuery, TEncodedVectors, TQuery>
 where
     TElement: PrimitiveVectorElement,
     TMetric: Metric<TElement>,
@@ -137,21 +126,9 @@ where
     }
 }
 
-impl<
-        TElement,
-        TMetric,
-        TEncodedQuery,
-        TEncodedVectors,
-        TQuery: Query<TEncodedQuery>,
-    > QueryScorer<[TElement]>
-    for QuantizedCustomQueryScorer<
-        '_,
-        TElement,
-        TMetric,
-        TEncodedQuery,
-        TEncodedVectors,
-        TQuery,
-    >
+impl<TElement, TMetric, TEncodedQuery, TEncodedVectors, TQuery: Query<TEncodedQuery>>
+    QueryScorer<[TElement]>
+    for QuantizedCustomQueryScorer<'_, TElement, TMetric, TEncodedQuery, TEncodedVectors, TQuery>
 where
     TElement: PrimitiveVectorElement,
     TMetric: Metric<TElement>,
