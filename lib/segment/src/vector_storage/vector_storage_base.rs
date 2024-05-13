@@ -141,6 +141,24 @@ pub enum VectorStorageEnum {
     ),
 }
 
+impl VectorStorageEnum {
+    pub fn try_multi_vector_config(&self) -> Option<&MultiVectorConfig> {
+        match self {
+            VectorStorageEnum::DenseSimple(_) => None,
+            VectorStorageEnum::DenseSimpleByte(_) => None,
+            VectorStorageEnum::DenseMemmap(_) => None,
+            VectorStorageEnum::DenseMemmapByte(_) => None,
+            VectorStorageEnum::DenseAppendableMemmap(_) => None,
+            VectorStorageEnum::DenseAppendableMemmapByte(_) => None,
+            VectorStorageEnum::SparseSimple(_) => None,
+            VectorStorageEnum::MultiDenseSimple(s) => Some(s.multi_vector_config()),
+            VectorStorageEnum::MultiDenseSimpleByte(s) => Some(s.multi_vector_config()),
+            VectorStorageEnum::MultiDenseAppendableMemmap(s) => Some(s.multi_vector_config()),
+            VectorStorageEnum::MultiDenseAppendableMemmapByte(s) => Some(s.multi_vector_config()),
+        }
+    }
+}
+
 impl VectorStorage for VectorStorageEnum {
     fn vector_dim(&self) -> usize {
         match self {

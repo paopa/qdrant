@@ -1,13 +1,17 @@
+use std::fs::File;
+use std::io::{Read, Write};
 use std::marker::PhantomData;
 use std::path::Path;
 
 use common::types::{PointOffsetType, ScoreType};
-use quantization::EncodedVectors;
+use quantization::{EncodedVectors, VectorParameters};
+use serde::{Deserialize, Serialize};
 
+use crate::common::operation_error::{OperationError, OperationResult};
 use crate::data_types::vectors::TypedMultiDenseVectorRef;
 use crate::types::{MultiVectorComparator, MultiVectorConfig};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
 pub struct MultivectorOffset {
     pub offset: PointOffsetType,
     pub count: PointOffsetType,
@@ -18,9 +22,9 @@ where
     TEncodedQuery: Sized,
     QuantizedStorage: EncodedVectors<TEncodedQuery>,
 {
-    dim: usize,
     quantized_storage: QuantizedStorage,
     offsets: Vec<MultivectorOffset>,
+    dim: usize,
     multi_vector_config: MultiVectorConfig,
     encoded_query: PhantomData<TEncodedQuery>,
 }
@@ -43,6 +47,45 @@ where
             multi_vector_config,
             encoded_query: PhantomData,
         }
+    }
+
+    pub fn save_multi(
+        &self,
+        data_path: &Path,
+        meta_path: &Path,
+        offsets_path: &Path,
+    ) -> OperationResult<()> {
+        let offsets_serialized = bincode::serialize(&self.offsets).map_err(|_| {
+            OperationError::service_error("Cannot serialize quantized multivector offsets")
+        })?;
+        let mut file = File::create(offsets_path)?;
+        file.write_all(&offsets_serialized)?;
+        file.flush()?;
+
+        Ok(self.quantized_storage.save(data_path, meta_path)?)
+    }
+
+    pub fn load_multi(
+        data_path: &Path,
+        meta_path: &Path,
+        offsets_path: &Path,
+        vector_parameters: &VectorParameters,
+        multi_vector_config: &MultiVectorConfig,
+    ) -> OperationResult<Self> {
+        let mut file = File::open(offsets_path)?;
+        let mut offsets_serialized = Vec::new();
+        file.read_to_end(&mut offsets_serialized)?;
+        let offsets = bincode::deserialize(&offsets_serialized).map_err(|_| {
+            OperationError::service_error("Cannot deserialize quantized multivector offsets")
+        })?;
+
+        Ok(Self {
+            dim: vector_parameters.dim,
+            quantized_storage: QuantizedStorage::load(data_path, meta_path, vector_parameters)?,
+            offsets,
+            multi_vector_config: *multi_vector_config,
+            encoded_query: PhantomData,
+        })
     }
 
     fn score_point_max_similarity(&self, query: &Vec<TEncodedQuery>, vector_index: u32) -> f32 {
@@ -96,16 +139,20 @@ where
     TEncodedQuery: Sized,
     QuantizedStorage: EncodedVectors<TEncodedQuery>,
 {
+    // TODO(colbert): refactor `EncodedVectors` to support multi vector storage after quantization migration
     fn save(&self, _data_path: &Path, _meta_path: &Path) -> std::io::Result<()> {
-        todo!()
+        unreachable!("multivector quantized storage should be saved using `self.save_multi` method")
     }
 
+    // TODO(colbert): refactor `EncodedVectors` to support multi vector storage after quantization migration
     fn load(
         _data_path: &Path,
         _meta_path: &Path,
         _vector_parameters: &quantization::VectorParameters,
     ) -> std::io::Result<Self> {
-        todo!()
+        unreachable!(
+            "multivector quantized storage should be loaded using `self.load_multi` method"
+        )
     }
 
     fn encode_query(&self, query: &[f32]) -> Vec<TEncodedQuery> {
