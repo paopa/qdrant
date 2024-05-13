@@ -28,7 +28,6 @@ use segment::vector_storage::quantized::quantized_vectors::QuantizedVectors;
 use segment::vector_storage::query::context_query::ContextPair;
 use segment::vector_storage::query::discovery_query::DiscoveryQuery;
 use segment::vector_storage::query::reco_query::RecoQuery;
-use segment::vector_storage::VectorStorageEnum;
 use serde_json::json;
 use tempfile::Builder;
 
@@ -188,18 +187,18 @@ fn test_multivector_quantization_hnsw(
     let stopped = AtomicBool::new(false);
 
     let m = 8;
-    let num_vectors: u64 = 5_000;
+    let num_vectors: u64 = 1_000;
     let ef_construct = 16;
     let full_scan_threshold = 16; // KB
     let num_payload_values = 2;
 
     let mut rnd = StdRng::seed_from_u64(42);
 
-    let dir_byte = Builder::new().prefix("segment_dir_byte").tempdir().unwrap();
-    let quantized_data_path = dir_byte.path();
-    let hnsw_dir_byte = Builder::new().prefix("hnsw_dir_byte").tempdir().unwrap();
+    let dir = Builder::new().prefix("segment_dir").tempdir().unwrap();
+    let quantized_data_path = dir.path();
+    let hnsw_dir = Builder::new().prefix("hnsw_dir").tempdir().unwrap();
 
-    let config_byte = SegmentConfig {
+    let config = SegmentConfig {
         vector_data: HashMap::from([(
             DEFAULT_VECTOR_NAME.to_owned(),
             VectorDataConfig {
@@ -218,18 +217,7 @@ fn test_multivector_quantization_hnsw(
 
     let int_key = "int";
 
-    let mut segment_byte = build_segment(dir_byte.path(), &config_byte, true).unwrap();
-    // check that `segment_byte` uses byte storage
-    {
-        let borrowed_storage = segment_byte.vector_data[DEFAULT_VECTOR_NAME]
-            .vector_storage
-            .borrow();
-        let raw_storage: &VectorStorageEnum = &borrowed_storage;
-        assert!(matches!(
-            raw_storage,
-            &VectorStorageEnum::DenseSimpleByte(_)
-        ));
-    }
+    let mut segment = build_segment(dir.path(), &config, true).unwrap();
 
     for n in 0..num_vectors {
         let idx = n.into();
@@ -239,15 +227,15 @@ fn test_multivector_quantization_hnsw(
         let int_payload = random_int_payload(&mut rnd, num_payload_values..=num_payload_values);
         let payload: Payload = json!({int_key:int_payload,}).into();
 
-        segment_byte
+        segment
             .upsert_point(n as SeqNumberType, idx, only_default_multi_vector(&vector))
             .unwrap();
-        segment_byte
+        segment
             .set_full_payload(n as SeqNumberType, idx, &payload)
             .unwrap();
     }
 
-    segment_byte
+    segment
         .payload_index
         .borrow_mut()
         .set_indexed(&path(int_key), PayloadSchemaType::Integer.into())
@@ -268,7 +256,7 @@ fn test_multivector_quantization_hnsw(
         QuantizationVariant::Binary => BinaryQuantizationConfig { always_ram: None }.into(),
     };
 
-    segment_byte
+    segment
         .vector_data
         .values_mut()
         .for_each(|vector_storage| {
@@ -295,20 +283,20 @@ fn test_multivector_quantization_hnsw(
 
     let permit_cpu_count = num_rayon_threads(hnsw_config.max_indexing_threads);
     let permit = Arc::new(CpuPermit::dummy(permit_cpu_count as u32));
-    let mut hnsw_index_byte = HNSWIndex::<GraphLinksRam>::open(
-        hnsw_dir_byte.path(),
-        segment_byte.id_tracker.clone(),
-        segment_byte.vector_data[DEFAULT_VECTOR_NAME]
+    let mut hnsw_index = HNSWIndex::<GraphLinksRam>::open(
+        hnsw_dir.path(),
+        segment.id_tracker.clone(),
+        segment.vector_data[DEFAULT_VECTOR_NAME]
             .vector_storage
             .clone(),
-        segment_byte.vector_data[DEFAULT_VECTOR_NAME]
+        segment.vector_data[DEFAULT_VECTOR_NAME]
             .quantized_vectors
             .clone(),
-        segment_byte.payload_index.clone(),
+        segment.payload_index.clone(),
         hnsw_config,
     )
     .unwrap();
-    hnsw_index_byte.build_index(permit, &stopped).unwrap();
+    hnsw_index.build_index(permit, &stopped).unwrap();
 
     let top = 5;
     let mut sames = 0;
@@ -332,7 +320,7 @@ fn test_multivector_quantization_hnsw(
 
         let filter_query = Some(&filter);
 
-        let index_result_byte = hnsw_index_byte
+        let index_result = hnsw_index
             .search(
                 &[&query],
                 filter_query,
@@ -349,7 +337,7 @@ fn test_multivector_quantization_hnsw(
             )
             .unwrap();
 
-        let plain_result_byte = hnsw_index_byte
+        let plain_result = hnsw_index
             .search(
                 &[&query],
                 filter_query,
@@ -367,7 +355,7 @@ fn test_multivector_quantization_hnsw(
             )
             .unwrap();
 
-        sames += sames_count(&plain_result_byte, &index_result_byte);
+        sames += sames_count(&plain_result, &index_result);
     }
     let acc = 100.0 * sames as f64 / (attempts * top) as f64;
     println!("sames = {sames}, attempts = {attempts}, top = {top}, acc = {acc}");

@@ -307,7 +307,7 @@ impl<T: PrimitiveVectorElement + 'static> VectorStorage for SimpleMultiDenseVect
     }
 
     fn total_vector_count(&self) -> usize {
-        self.vectors.len()
+        self.vectors_metadata.len()
     }
 
     fn get_vector(&self, key: PointOffsetType) -> CowVector {
