@@ -9,7 +9,7 @@ use itertools::Itertools;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::rstest;
-use segment::data_types::vectors::{QueryVector, DEFAULT_VECTOR_NAME};
+use segment::data_types::vectors::{only_default_multi_vector, QueryVector, DEFAULT_VECTOR_NAME};
 use segment::entry::entry_point::SegmentEntry;
 use segment::fixtures::payload_fixtures::{random_int_payload, random_multi_vector};
 use segment::index::hnsw_index::graph_links::GraphLinksRam;
@@ -20,7 +20,7 @@ use segment::json_path::path;
 use segment::segment_constructor::build_segment;
 use segment::types::{
     BinaryQuantizationConfig, CompressionRatio, Condition, Distance, FieldCondition, Filter,
-    HnswConfig, Indexes, Payload, PayloadSchemaType, ProductQuantizationConfig,
+    HnswConfig, Indexes, MultiVectorConfig, Payload, PayloadSchemaType, ProductQuantizationConfig,
     QuantizationSearchParams, Range, ScalarQuantizationConfig, SearchParams, SegmentConfig,
     SeqNumberType, VectorDataConfig, VectorStorageType,
 };
@@ -181,9 +181,6 @@ fn test_multivector_quantization_hnsw(
     #[case] ef: usize,
     #[case] min_acc: f64, // out of 100
 ) {
-    use segment::data_types::vectors::only_default_multi_vector;
-    use segment::types::MultiVectorConfig;
-
     let stopped = AtomicBool::new(false);
 
     let m = 8;
@@ -256,21 +253,17 @@ fn test_multivector_quantization_hnsw(
         QuantizationVariant::Binary => BinaryQuantizationConfig { always_ram: None }.into(),
     };
 
-    segment
-        .vector_data
-        .values_mut()
-        .for_each(|vector_storage| {
-            let quantized_vectors = QuantizedVectors::create(
-                &vector_storage.vector_storage.borrow(),
-                &quantization_config,
-                quantized_data_path,
-                4,
-                &stopped,
-            )
-            .unwrap();
-            vector_storage.quantized_vectors =
-                Arc::new(AtomicRefCell::new(Some(quantized_vectors)));
-        });
+    segment.vector_data.values_mut().for_each(|vector_storage| {
+        let quantized_vectors = QuantizedVectors::create(
+            &vector_storage.vector_storage.borrow(),
+            &quantization_config,
+            quantized_data_path,
+            4,
+            &stopped,
+        )
+        .unwrap();
+        vector_storage.quantized_vectors = Arc::new(AtomicRefCell::new(Some(quantized_vectors)));
+    });
 
     let hnsw_config = HnswConfig {
         m,
@@ -328,7 +321,7 @@ fn test_multivector_quantization_hnsw(
                 Some(&SearchParams {
                     hnsw_ef: Some(ef),
                     quantization: Some(QuantizationSearchParams {
-                        oversampling: Some(2.0),
+                        oversampling: Some(1.3),
                         ..Default::default()
                     }),
                     ..Default::default()
