@@ -210,10 +210,16 @@ impl QuantizedVectors {
             VectorStorageEnum::MultiDenseSimpleByte(v) => {
                 Self::create_multi_impl(v, quantization_config, path, max_threads, stopped)
             }
+            VectorStorageEnum::MultiDenseSimpleHalf(v) => {
+                Self::create_multi_impl(v, quantization_config, path, max_threads, stopped)
+            }
             VectorStorageEnum::MultiDenseAppendableMemmap(v) => {
                 Self::create_multi_impl(v.as_ref(), quantization_config, path, max_threads, stopped)
             }
             VectorStorageEnum::MultiDenseAppendableMemmapByte(v) => {
+                Self::create_multi_impl(v.as_ref(), quantization_config, path, max_threads, stopped)
+            }
+            VectorStorageEnum::MultiDenseAppendableMemmapHalf(v) => {
                 Self::create_multi_impl(v.as_ref(), quantization_config, path, max_threads, stopped)
             }
         }

@@ -9,7 +9,8 @@ use super::quantized_vectors::QuantizedVectorStorage;
 use crate::common::operation_error::OperationResult;
 use crate::data_types::primitive::PrimitiveVectorElement;
 use crate::data_types::vectors::{
-    DenseVector, QueryVector, VectorElementType, VectorElementTypeByte, VectorElementTypeHalf,
+    DenseVector, MultiDenseVector, QueryVector, VectorElementType, VectorElementTypeByte,
+    VectorElementTypeHalf,
 };
 use crate::spaces::metric::Metric;
 use crate::spaces::simple::{CosineMetric, DotProductMetric, EuclidMetric, ManhattanMetric};

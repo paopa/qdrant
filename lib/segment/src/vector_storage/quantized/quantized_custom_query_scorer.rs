@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use common::types::{PointOffsetType, ScoreType};
 use itertools::Itertools;
 
+use crate::data_types::named_vectors::CowMultiVector;
 use crate::data_types::primitive::PrimitiveVectorElement;
 use crate::data_types::vectors::{
     DenseVector, MultiDenseVector, TypedDenseVector, TypedMultiDenseVector,
@@ -99,7 +100,8 @@ where
                     .collect_vec();
                 let preprocessed = MultiDenseVector::new(preprocessed, vector.dim);
                 let converted =
-                    TElement::from_float_multivector(Cow::Owned(preprocessed)).into_owned();
+                    TElement::from_float_multivector(CowMultiVector::Owned(preprocessed))
+                        .to_owned();
                 Ok(converted)
             })
             .unwrap();
