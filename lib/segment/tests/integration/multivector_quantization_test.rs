@@ -9,7 +9,9 @@ use itertools::Itertools;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use rstest::rstest;
-use segment::data_types::vectors::{only_default_multi_vector, QueryVector, DEFAULT_VECTOR_NAME};
+use segment::data_types::vectors::{
+    only_default_multi_vector, MultiDenseVector, QueryVector, DEFAULT_VECTOR_NAME,
+};
 use segment::entry::entry_point::SegmentEntry;
 use segment::fixtures::payload_fixtures::{random_int_payload, random_multi_vector};
 use segment::index::hnsw_index::graph_links::GraphLinksRam;
@@ -46,22 +48,23 @@ enum QuantizationVariant {
     Binary,
 }
 
-fn random_vectors_count<R: Rng + ?Sized>(rnd: &mut R) -> usize {
-    rnd.gen_range(1..=MAX_VECTORS_COUNT)
+fn random_vector<R: Rng + ?Sized>(rnd: &mut R, dim: usize) -> MultiDenseVector {
+    let count = rnd.gen_range(1..=MAX_VECTORS_COUNT);
+    let mut vector = random_multi_vector(rnd, dim, count);
+    // for BQ change range to [-0.5; 0.5]
+    vector.flattened_vectors.iter_mut().for_each(|x| *x -= 0.5);
+    vector
 }
 
 fn random_discovery_query<R: Rng + ?Sized>(rnd: &mut R, dim: usize) -> QueryVector {
     let num_pairs: usize = rnd.gen_range(1..MAX_EXAMPLE_PAIRS);
 
-    let count = random_vectors_count(rnd);
-    let target = random_multi_vector(rnd, dim, count).into();
+    let target = random_vector(rnd, dim).into();
 
     let pairs = (0..num_pairs)
         .map(|_| {
-            let count = random_vectors_count(rnd);
-            let positive = random_multi_vector(rnd, dim, count).into();
-            let count = random_vectors_count(rnd);
-            let negative = random_multi_vector(rnd, dim, count).into();
+            let positive = random_vector(rnd, dim).into();
+            let negative = random_vector(rnd, dim).into();
             ContextPair { positive, negative }
         })
         .collect_vec();
@@ -71,22 +74,20 @@ fn random_discovery_query<R: Rng + ?Sized>(rnd: &mut R, dim: usize) -> QueryVect
 
 fn random_reco_query<R: Rng + ?Sized>(rnd: &mut R, dim: usize) -> QueryVector {
     let num_examples: usize = rnd.gen_range(1..MAX_EXAMPLE_PAIRS);
-    let count = random_vectors_count(rnd);
 
     let positive = (0..num_examples)
-        .map(|_| random_multi_vector(rnd, dim, count).into())
+        .map(|_| random_vector(rnd, dim).into())
         .collect_vec();
     let negative = (0..num_examples)
-        .map(|_| random_multi_vector(rnd, dim, count).into())
+        .map(|_| random_vector(rnd, dim).into())
         .collect_vec();
 
     RecoQuery::new(positive, negative).into()
 }
 
 fn random_query<R: Rng + ?Sized>(variant: &QueryVariant, rnd: &mut R, dim: usize) -> QueryVector {
-    let count = random_vectors_count(rnd);
     match variant {
-        QueryVariant::Nearest => random_multi_vector(rnd, dim, count).into(),
+        QueryVariant::Nearest => random_vector(rnd, dim).into(),
         QueryVariant::Discovery => random_discovery_query(rnd, dim),
         QueryVariant::RecommendBestScore => random_reco_query(rnd, dim),
     }
@@ -218,8 +219,7 @@ fn test_multivector_quantization_hnsw(
 
     for n in 0..num_vectors {
         let idx = n.into();
-        let count = random_vectors_count(&mut rnd);
-        let vector = random_multi_vector(&mut rnd, dim, count);
+        let vector = random_vector(&mut rnd, dim);
 
         let int_payload = random_int_payload(&mut rnd, num_payload_values..=num_payload_values);
         let payload: Payload = json!({int_key:int_payload,}).into();

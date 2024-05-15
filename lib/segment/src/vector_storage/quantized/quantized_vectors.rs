@@ -353,20 +353,16 @@ impl QuantizedVectors {
             )?,
         };
 
-        let offsets = vector_storage
-            .iterate_inner_vectors()
-            .scan(
-                MultivectorOffset {
-                    offset: 0,
-                    count: 0,
-                },
-                |acc, multi_vector| {
-                    Some(MultivectorOffset {
-                        offset: acc.offset + acc.count,
-                        count: multi_vector.len() as PointOffsetType,
-                    })
-                },
-            )
+        let offsets = (0..vector_storage.total_vector_count() as PointOffsetType)
+            .map(|idx| vector_storage.get_multi(idx).len() as PointOffsetType)
+            .scan(0, |offset_acc, multi_vector_len| {
+                let offset = *offset_acc;
+                *offset_acc += multi_vector_len;
+                Some(MultivectorOffset {
+                    offset,
+                    count: multi_vector_len,
+                })
+            })
             .collect_vec();
 
         // convert into multivector quantized storage
