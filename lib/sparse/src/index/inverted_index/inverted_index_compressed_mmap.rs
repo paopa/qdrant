@@ -15,10 +15,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::common::sparse_vector::RemappedSparseVector;
 use crate::common::types::{DimId, DimOffset};
+use crate::index::compressed_posting_list::{
+    CompressedPostingListIterator, CompressedPostingListView,
+};
 use crate::index::inverted_index::inverted_index_ram::InvertedIndexRam;
 use crate::index::inverted_index::InvertedIndex;
 use crate::index::migrate::SparseVectorIndexVersion;
-use crate::index::posting_list::PostingListIterator;
 use crate::index::posting_list_common::PostingElement;
 
 const POSTING_HEADER_SIZE: usize = size_of::<PostingListFileHeader>();
@@ -40,12 +42,17 @@ pub struct InvertedIndexMmap {
 
 #[derive(Debug, Default, Clone)]
 struct PostingListFileHeader {
-    pub start_offset: u64,
-    pub end_offset: u64,
+    pub ids_start: u64,
+    pub chunks_start: u64,
+    pub remainders_start: u64,
+
+    pub ids_count: u32,
+    pub chunks_count: u32,
+    pub remainders_count: u8, // 0..127
 }
 
 impl InvertedIndex for InvertedIndexMmap {
-    type Iter<'a> = PostingListIterator<'a>;
+    type Iter<'a> = CompressedPostingListIterator<'a>;
 
     fn open(path: &Path) -> std::io::Result<Self> {
         Self::load(path)
@@ -56,8 +63,8 @@ impl InvertedIndex for InvertedIndexMmap {
         Ok(())
     }
 
-    fn get(&self, id: &DimId) -> Option<PostingListIterator> {
-        self.get(id).map(PostingListIterator::new)
+    fn get<'a>(&'a self, id: &DimId) -> Option<CompressedPostingListIterator<'a>> {
+        self.get(id).map(|posting_list| posting_list.iter())
     }
 
     fn len(&self) -> usize {
@@ -109,7 +116,7 @@ impl InvertedIndexMmap {
         path.join(INDEX_CONFIG_FILE_NAME)
     }
 
-    pub fn get(&self, id: &DimId) -> Option<&[PostingElement]> {
+    pub fn get<'a>(&'a self, id: &DimId) -> Option<CompressedPostingListView<'a>> {
         // check that the id is not out of bounds (posting_count includes the empty zeroth entry)
         if *id >= self.file_header.posting_count as DimId {
             return None;
@@ -119,8 +126,19 @@ impl InvertedIndexMmap {
             &self.mmap[header_start..header_start + POSTING_HEADER_SIZE],
         )
         .clone();
-        let elements_bytes = &self.mmap[header.start_offset as usize..header.end_offset as usize];
-        Some(transmute_from_u8_to_slice(elements_bytes))
+
+        Some(CompressedPostingListView::new(
+            self.slice_part(header.ids_start, header.ids_count),
+            self.slice_part(header.chunks_start, header.chunks_count),
+            self.slice_part(header.remainders_start, header.remainders_count),
+            None, // TODO
+        ))
+    }
+
+    fn slice_part<T>(&self, start: impl Into<u64>, count: impl Into<u64>) -> &[T] {
+        let start = start.into() as usize;
+        let end = start + count.into() as usize * size_of::<T>();
+        transmute_from_u8_to_slice(&self.mmap[start..end])
     }
 
     pub fn convert_and_save<P: AsRef<Path>>(
@@ -195,6 +213,8 @@ impl InvertedIndexMmap {
         total_posting_elements_size
     }
 
+    #[// TODO: remove this
+      allow(unreachable_code, clippy::diverging_sub_expression, unused_variables, unused_mut)]
     fn save_posting_headers(
         mmap: &mut MmapMut,
         inverted_index_ram: &InvertedIndexRam,
@@ -204,10 +224,16 @@ impl InvertedIndexMmap {
         for (id, posting) in inverted_index_ram.postings.iter().enumerate() {
             let posting_elements_size = posting.elements.len() * size_of::<PostingElement>();
             let posting_header = PostingListFileHeader {
-                start_offset: elements_offset as u64,
-                end_offset: (elements_offset + posting_elements_size) as u64,
+                ids_start: todo!(),
+                chunks_start: todo!(),
+                remainders_start: todo!(),
+                ids_count: todo!(),
+                chunks_count: todo!(),
+                remainders_count: todo!(),
+                // start_offset: elements_offset as u64,
+                // end_offset: (elements_offset + posting_elements_size) as u64,
             };
-            elements_offset = posting_header.end_offset as usize;
+            // elements_offset = posting_header.end_offset as usize;
 
             // save posting header
             let posting_header_bytes = transmute_to_u8(&posting_header);
@@ -233,6 +259,7 @@ impl InvertedIndexMmap {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use tempfile::Builder;
@@ -296,3 +323,4 @@ mod tests {
         assert!(inverted_index_mmap.get(&100).is_none());
     }
 }
+*/

@@ -6,7 +6,8 @@ use common::types::PointOffsetType;
 use crate::common::sparse_vector::RemappedSparseVector;
 use crate::common::types::DimId;
 use crate::index::inverted_index::InvertedIndex;
-use crate::index::posting_list::{PostingElement, PostingList, PostingListIterator};
+use crate::index::posting_list::{PostingList, PostingListIterator};
+use crate::index::posting_list_common::PostingElement;
 
 /// Inverted flatten index from dimension id to posting list
 #[derive(Debug, Clone, PartialEq)]
@@ -20,6 +21,8 @@ pub struct InvertedIndexRam {
 }
 
 impl InvertedIndex for InvertedIndexRam {
+    type Iter<'a> = PostingListIterator<'a>;
+
     fn open(_path: &Path) -> std::io::Result<Self> {
         panic!("InvertedIndexRam is not supposed to be loaded");
     }
@@ -29,8 +32,7 @@ impl InvertedIndex for InvertedIndexRam {
     }
 
     fn get(&self, id: &DimId) -> Option<PostingListIterator> {
-        self.get(id)
-            .map(|posting_list| PostingListIterator::new(&posting_list.elements))
+        self.get(id).map(|posting_list| posting_list.iter())
     }
 
     fn len(&self) -> usize {

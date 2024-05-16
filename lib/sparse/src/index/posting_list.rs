@@ -1,38 +1,63 @@
 use std::cmp::max;
+use std::ops::ControlFlow;
 
 use common::types::PointOffsetType;
 use ordered_float::OrderedFloat;
 
+use super::posting_list_common::{PostingElement, PostingListIter};
 use crate::common::types::DimWeight;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PostingElement {
-    /// Record ID
-    pub record_id: PointOffsetType,
-    /// Weight of the record in the dimension
-    pub weight: DimWeight,
-    /// Max weight of the next elements in the posting list.
-    pub max_next_weight: DimWeight,
-}
-
-const DEFAULT_MAX_NEXT_WEIGHT: DimWeight = f32::NEG_INFINITY;
-
-impl PostingElement {
-    /// Initialize negative infinity as max_next_weight.
-    /// Needs to be updated at insertion time.
-    pub(crate) fn new(record_id: PointOffsetType, weight: DimWeight) -> PostingElement {
-        PostingElement {
-            record_id,
-            weight,
-            max_next_weight: DEFAULT_MAX_NEXT_WEIGHT,
-        }
-    }
-}
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct PostingList {
     /// List of the posting elements ordered by id
     pub elements: Vec<PostingElement>,
+}
+
+impl<'a> PostingListIter for PostingListIterator<'a> {
+    #[inline]
+    fn peek(&mut self) -> Option<PostingElement> {
+        self.elements.get(self.current_index).cloned()
+    }
+    #[inline]
+    fn last(&self) -> Option<PostingElement> {
+        self.elements.last().cloned()
+    }
+    #[inline]
+    fn skip_to(&mut self, record_id: PointOffsetType) -> Option<PostingElement> {
+        self.skip_to(record_id)
+    }
+    #[inline]
+    fn skip_to_end(&mut self) {
+        self.skip_to_end();
+    }
+    #[inline]
+    fn len_to_end(&self) -> usize {
+        self.len_to_end()
+    }
+    #[inline]
+    fn current_index(&self) -> usize {
+        self.current_index
+    }
+    #[inline]
+    fn try_for_each<F, R>(&mut self, mut f: F) -> ControlFlow<R>
+    where
+        F: FnMut(PostingElement) -> ControlFlow<R>,
+    {
+        let mut current_index = self.current_index;
+        for element in &self.elements[current_index..] {
+            match f(element.clone()) {
+                ControlFlow::Continue(_) => {
+                    current_index += 1;
+                }
+                ControlFlow::Break(r) => {
+                    self.current_index = current_index;
+                    return ControlFlow::Break(r);
+                }
+            }
+        }
+        self.current_index = current_index;
+        ControlFlow::Continue(())
+    }
 }
 
 impl PostingList {
@@ -118,6 +143,10 @@ impl PostingList {
             }
         }
     }
+
+    pub fn iter(&self) -> PostingListIterator {
+        PostingListIterator::new(&self.elements)
+    }
 }
 
 pub struct PostingBuilder {
@@ -186,11 +215,6 @@ impl<'a> PostingListIterator<'a> {
         }
     }
 
-    /// Slice of the remaining elements.
-    pub fn remaining_elements(&self) -> &'a [PostingElement] {
-        &self.elements[self.current_index..]
-    }
-
     /// Advances the iterator to the next element.
     pub fn advance(&mut self) {
         if self.current_index < self.elements.len() {
@@ -219,7 +243,7 @@ impl<'a> PostingListIterator<'a> {
     /// If the iterator is already at the end, None is returned.
     /// If the iterator skipped to the end, None is returned and current index is set to the length of the list.
     /// Uses binary search.
-    pub fn skip_to(&mut self, id: PointOffsetType) -> Option<&PostingElement> {
+    pub fn skip_to(&mut self, id: PointOffsetType) -> Option<PostingElement> {
         // Check if we are already at the end
         if self.current_index >= self.elements.len() {
             return None;
@@ -232,7 +256,7 @@ impl<'a> PostingListIterator<'a> {
         match next_element {
             Ok(found_offset) => {
                 self.current_index += found_offset;
-                Some(&self.elements[self.current_index])
+                Some(self.elements[self.current_index].clone())
             }
             Err(insert_index) => {
                 self.current_index += insert_index;
@@ -251,6 +275,7 @@ impl<'a> PostingListIterator<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::index::posting_list_common::DEFAULT_MAX_NEXT_WEIGHT;
 
     #[test]
     fn test_posting_operations() {

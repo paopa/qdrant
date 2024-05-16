@@ -7,57 +7,41 @@ use super::inverted_index_ram::InvertedIndexRam;
 use super::InvertedIndex;
 use crate::common::sparse_vector::RemappedSparseVector;
 use crate::common::types::{DimId, DimOffset};
-use crate::index::posting_list::{PostingList, PostingListIterator};
+use crate::index::compressed_posting_list::{
+    CompressedPostingBuilder, CompressedPostingList, CompressedPostingListIterator,
+};
+use crate::index::posting_list_common::PostingListIter as _;
 
 /// A wrapper around [`InvertedIndexRam`].
 /// Will be replaced with the new compressed implementation eventually.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InvertedIndexImmutableRam {
-    inner: InvertedIndexRam,
+    postings: Vec<CompressedPostingList>,
 }
 
 impl InvertedIndex for InvertedIndexImmutableRam {
-    type Iter<'a> = PostingListIterator<'a>;
+    type Iter<'a> = CompressedPostingListIterator<'a>;
 
-    fn open(path: &Path) -> std::io::Result<Self> {
-        let mmap_inverted_index = InvertedIndexMmap::load(path)?;
-        let mut inverted_index = InvertedIndexRam {
-            postings: Default::default(),
-            vector_count: mmap_inverted_index.file_header.vector_count,
-        };
-
-        for i in 0..mmap_inverted_index.file_header.posting_count as DimId {
-            let posting_list = mmap_inverted_index.get(&i).ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("Posting list {} not found", i),
-                )
-            })?;
-            inverted_index.postings.push(PostingList {
-                elements: posting_list.to_owned(),
-            });
-        }
-
-        Ok(InvertedIndexImmutableRam {
-            inner: inverted_index,
-        })
+    fn open(_path: &Path) -> std::io::Result<Self> {
+        todo!()
     }
 
-    fn save(&self, path: &Path) -> std::io::Result<()> {
-        InvertedIndexMmap::convert_and_save(&self.inner, path)?;
-        Ok(())
+    fn save(&self, _path: &Path) -> std::io::Result<()> {
+        todo!()
     }
 
-    fn get(&self, id: &DimOffset) -> Option<PostingListIterator> {
-        InvertedIndex::get(&self.inner, id)
+    fn get(&self, id: &DimId) -> Option<Self::Iter<'_>> {
+        self.postings
+            .get(*id as usize)
+            .map(|posting_list| posting_list.iter())
     }
 
     fn len(&self) -> usize {
-        self.inner.len()
+        self.postings.len()
     }
 
     fn posting_list_len(&self, id: &DimOffset) -> Option<usize> {
-        self.inner.posting_list_len(id)
+        self.get(id).map(|posting_list| posting_list.len_to_end())
     }
 
     fn files(path: &Path) -> Vec<std::path::PathBuf> {
@@ -72,15 +56,23 @@ impl InvertedIndex for InvertedIndexImmutableRam {
         ram_index: InvertedIndexRam,
         _path: P,
     ) -> std::io::Result<Self> {
-        Ok(InvertedIndexImmutableRam { inner: ram_index })
+        let mut postings = Vec::with_capacity(ram_index.postings.len());
+        for old_posting_list in ram_index.postings {
+            let mut new_posting_list = CompressedPostingBuilder::new();
+            for elem in old_posting_list.elements {
+                new_posting_list.add(elem.record_id, elem.weight);
+            }
+            postings.push(new_posting_list.build());
+        }
+        Ok(InvertedIndexImmutableRam { postings })
     }
 
     fn vector_count(&self) -> usize {
-        self.inner.vector_count()
+        todo!()
     }
 
     fn max_index(&self) -> Option<DimOffset> {
-        self.inner.max_index()
+        todo!()
     }
 }
 
