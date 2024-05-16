@@ -2,7 +2,7 @@ use api::grpc::qdrant as grpc;
 use common::types::ScoreType;
 use itertools::Itertools;
 use segment::data_types::vectors::{NamedQuery, NamedVectorStruct, Vector, DEFAULT_VECTOR_NAME};
-use segment::types::{Filter, ScoredPoint, SearchParams, WithPayloadInterface, WithVector};
+use segment::types::{Filter, QueriedPoint, SearchParams, WithPayloadInterface, WithVector};
 use segment::vector_storage::query::{ContextQuery, DiscoveryQuery, RecoQuery};
 use tonic::Status;
 
@@ -11,7 +11,7 @@ use crate::operations::query_enum::QueryEnum;
 /// Internal response type for a universal query request.
 ///
 /// Capable of returning multiple intermediate results if needed, like the case of RRF (Reciprocal Rank Fusion)
-pub type ShardQueryResponse = Vec<Vec<ScoredPoint>>;
+pub type ShardQueryResponse = Vec<Vec<QueriedPoint>>;
 
 /// Internal representation of a universal query request.
 ///
@@ -37,7 +37,7 @@ pub enum ScoringQuery {
 
     /// Reciprocal rank fusion
     Rrf,
-    // TODO(universal-query): Add fusion and order-by
+    // TODO(universal-query): Add order-by
 }
 
 impl ScoringQuery {
