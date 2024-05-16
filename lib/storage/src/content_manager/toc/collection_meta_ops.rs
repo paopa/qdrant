@@ -396,6 +396,7 @@ impl TableOfContent {
                     to: transfer_restart.to,
                     sync: old_transfer.sync, // Preserve sync flag from the old transfer
                     method: Some(transfer_restart.method),
+                    to_shard_id: None,
                 };
 
                 Box::pin(
