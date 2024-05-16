@@ -48,7 +48,7 @@ pub type ShardIds = SmallVec<[ShardId; 2]>;
 pub struct ShardHolder {
     shards: HashMap<ShardId, ShardReplicaSet>,
     pub(crate) shard_transfers: SaveOnDisk<HashSet<ShardTransfer>>,
-    rings: HashMap<Option<ShardKey>, ShardHashRing>,
+    pub(crate) rings: HashMap<Option<ShardKey>, ShardHashRing>,
     key_mapping: SaveOnDisk<ShardKeyMapping>,
     // Duplicates the information from `key_mapping` for faster access
     // Do not require locking
@@ -104,6 +104,17 @@ impl ShardHashRing {
             //     .dedup()
             //     .cloned()
             //     .collect(),
+        }
+    }
+
+    /// Check whether the given point has moved according to this hashring
+    ///
+    /// Returns true if this is a resharding hashring in which both hashrings place the given point
+    /// ID in a different shard.
+    pub fn has_moved<U: Hash>(&self, key: &U) -> bool {
+        match self {
+            Self::Single(_) => false,
+            Self::Resharding { old, new } => old.get(key) != new.get(key),
         }
     }
 }
