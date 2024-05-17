@@ -1,7 +1,8 @@
 use std::{env, io};
 
-use api::grpc::transport_channel_pool::{
-    DEFAULT_CONNECT_TIMEOUT, DEFAULT_GRPC_TIMEOUT, DEFAULT_POOL_SIZE,
+use api::grpc::{
+    models::PyroscopeConfig,
+    transport_channel_pool::{DEFAULT_CONNECT_TIMEOUT, DEFAULT_GRPC_TIMEOUT, DEFAULT_POOL_SIZE},
 };
 use collection::operations::validation;
 use config::{Config, ConfigError, Environment, File, FileFormat, Source};
@@ -115,6 +116,11 @@ pub struct TlsConfig {
     pub cert_ttl: Option<u64>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct DebugConfig {
+    pub pyroscope: PyroscopeConfig,
+}
+
 #[derive(Debug, Deserialize, Clone, Validate)]
 pub struct Settings {
     #[serde(default = "default_log_level")]
@@ -130,6 +136,7 @@ pub struct Settings {
     pub telemetry_disabled: bool,
     #[validate]
     pub tls: Option<TlsConfig>,
+    pub debug: Option<DebugConfig>,
     /// A list of messages for errors that happened during loading the configuration. We collect
     /// them and store them here while loading because then our logger is not configured yet.
     /// We therefore need to log these messages later, after the logger is ready.
