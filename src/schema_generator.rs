@@ -1,4 +1,6 @@
-use api::grpc::models::{CollectionsResponse, GetDebugConfigResponse, UpdateDebugConfigRequest, VersionInfo};
+use api::grpc::models::{
+    CollectionsResponse, GetDebugConfigResponse, UpdateDebugConfigRequest, VersionInfo,
+};
 use api::rest::{Record, ScoredPoint};
 use collection::operations::cluster_ops::ClusterOperations;
 use collection::operations::consistency_params::ReadConsistency;

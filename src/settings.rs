@@ -1,8 +1,8 @@
 use std::{env, io};
 
-use api::grpc::{
-    models::PyroscopeConfig,
-    transport_channel_pool::{DEFAULT_CONNECT_TIMEOUT, DEFAULT_GRPC_TIMEOUT, DEFAULT_POOL_SIZE},
+use api::grpc::models::PyroscopeConfig;
+use api::grpc::transport_channel_pool::{
+    DEFAULT_CONNECT_TIMEOUT, DEFAULT_GRPC_TIMEOUT, DEFAULT_POOL_SIZE,
 };
 use collection::operations::validation;
 use config::{Config, ConfigError, Environment, File, FileFormat, Source};

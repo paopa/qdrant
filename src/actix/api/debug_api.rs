@@ -1,4 +1,3 @@
-use crate::{actix::auth::ActixAccess, common::pyroscope_state::PyroscopeState};
 use actix_web::{get, post, web, Responder};
 use api::grpc::models::{
     GetDebugConfigResponse,
@@ -6,6 +5,9 @@ use api::grpc::models::{
     // UpdateDebugConfigRequest
 };
 use storage::rbac::AccessRequirements;
+
+use crate::actix::auth::ActixAccess;
+use crate::common::pyroscope_state::PyroscopeState;
 
 #[get("/debug")]
 async fn get_debug_config(
@@ -18,9 +20,7 @@ async fn get_debug_config(
         // let config_guard = state.config.lock().unwrap();
         // let config = config_guard.clone();
 
-        Ok(GetDebugConfigResponse {
-            pyroscope: None,
-        })
+        Ok(GetDebugConfigResponse { pyroscope: None })
     })
     .await
 }
