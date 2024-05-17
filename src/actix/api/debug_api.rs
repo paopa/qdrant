@@ -3,7 +3,7 @@ use actix_web::{get, post, web, Responder};
 use api::grpc::models::{
     GetDebugConfigResponse,
     PyroscopeConfig,
-    // UpdateDebugConfigRequest, UpdateDebugConfigResponse,
+    // UpdateDebugConfigRequest
 };
 use storage::rbac::AccessRequirements;
 

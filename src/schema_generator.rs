@@ -1,4 +1,4 @@
-use api::grpc::models::{CollectionsResponse, GetDebugConfigResponse, UpdateDebugConfigRequest, UpdateDebugConfigResponse, VersionInfo};
+use api::grpc::models::{CollectionsResponse, GetDebugConfigResponse, UpdateDebugConfigRequest, VersionInfo};
 use api::rest::{Record, ScoredPoint};
 use collection::operations::cluster_ops::ClusterOperations;
 use collection::operations::consistency_params::ReadConsistency;
@@ -81,8 +81,7 @@ struct AllDefinitions {
     bc: VersionInfo,
     bd: CollectionExistence,
     be: UpdateDebugConfigRequest,
-    bf: UpdateDebugConfigResponse,
-    bh: GetDebugConfigResponse,
+    bf: GetDebugConfigResponse,
 }
 
 fn save_schema<T: JsonSchema>() {
