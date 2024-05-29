@@ -165,7 +165,7 @@ members = [
     "lib/common/*",
     "lib/segment",
     "lib/sparse",
-    "lib/storage",
+    "lib/storage", "playground",
 ]
 
 [profile.release]
